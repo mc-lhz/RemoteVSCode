@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code - RemoteConnecter</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="{{ url_for(pluginID ~ '_bp.static', filename='vendor/codicons/codicon.css') }}">
+    <link rel="stylesheet" href="/term/static/xterm.min.css">
+    <link rel="stylesheet" href="{{ url_for(pluginID ~ '_bp.static', filename='code.css') }}">
+</head>
+<body>
+<div id="code-app" class="code-app">
+    <div class="workbench">
+        <nav class="activitybar" aria-label="活动栏">
+            <button id="btn-activity-menu" class="activity-item activity-logo" title="菜单" aria-label="菜单">
+                <span class="codicon codicon-vscode"></span>
+            </button>
+            <button id="btn-activity-explorer" class="activity-item active" title="资源管理器" aria-label="资源管理器">
+                <span class="codicon codicon-files"></span>
+            </button>
+            <button id="btn-activity-search" class="activity-item" title="搜索（M4）" aria-label="搜索">
+                <span class="codicon codicon-search"></span>
+            </button>
+            <button id="btn-activity-scm" class="activity-item" title="源代码管理（后续版本）" aria-label="源代码管理">
+                <span class="codicon codicon-source-control"></span>
+            </button>
+            <button id="btn-activity-debug" class="activity-item" title="运行和调试（后续版本）" aria-label="运行和调试">
+                <span class="codicon codicon-debug-alt"></span>
+            </button>
+            <button id="btn-activity-extensions" class="activity-item" title="扩展（后续版本）" aria-label="扩展">
+                <span class="codicon codicon-extensions"></span>
+            </button>
+            <button id="btn-activity-remote" class="activity-item" title="远程资源管理器（后续版本）" aria-label="远程资源管理器">
+                <span class="codicon codicon-remote-explorer"></span>
+            </button>
+            <div class="activity-spacer"></div>
+            <button id="btn-activity-account" class="activity-item" title="账户" aria-label="账户">
+                <span class="codicon codicon-account"></span>
+            </button>
+            <button id="btn-activity-settings" class="activity-item" title="设置" aria-label="设置">
+                <span class="codicon codicon-settings-gear"></span>
+            </button>
+            <button id="btn-toggle-sidebar" class="activity-item activity-mobile-menu" title="切换资源管理器" aria-label="切换资源管理器">
+                <span class="codicon codicon-menu"></span>
+            </button>
+        </nav>
+
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-title">
+                <span class="sidebar-title-label">资源管理器</span>
+                <div class="sidebar-actions">
+                    <button id="btn-explorer-more" class="icon-button small" title="更多操作" aria-label="更多操作">
+                        <span class="codicon codicon-ellipsis"></span>
+                    </button>
+                </div>
+            </div>
+            <div id="workspace-summary" class="workspace-summary">
+                <button id="btn-workspace-row" class="workspace-row hidden" title="工作区操作">
+                    <span class="codicon codicon-chevron-down workspace-chevron"></span>
+                    <span id="workspace-name" class="workspace-name"></span>
+                </button>
+                <button id="btn-open-folder-sidebar" class="open-folder-button">
+                    <span class="codicon codicon-folder-opened"></span><span>打开文件夹</span>
+                </button>
+                <div id="workspace-path" class="workspace-path hidden"></div>
+            </div>
+            <div id="file-tree" class="file-tree" role="tree"></div>
+            <div id="tree-empty" class="tree-empty">
+                <span class="codicon codicon-folder"></span>
+                <p>尚未打开文件夹</p>
+                <button id="btn-open-folder-empty" class="text-button">打开文件夹</button>
+            </div>
+        </aside>
+
+        <main class="main-area">
+            <div id="tabbar" class="tabbar hidden"></div>
+            <div id="breadcrumbs" class="breadcrumbs hidden">
+                <div id="breadcrumb-path" class="breadcrumb-path"></div>
+                <div class="breadcrumb-actions">
+                    <button id="btn-preview" class="icon-button small hidden" title="Markdown 预览 (Ctrl+Shift+V)">
+                        <span class="codicon codicon-preview"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="editor-stack">
+                <div id="welcome" class="welcome">
+                    <div class="welcome-watermark" aria-hidden="true">
+                        <span class="codicon codicon-vscode"></span>
+                    </div>
+                    <div class="welcome-content">
+                        <div class="welcome-heading">开始</div>
+                        <button class="welcome-action" data-command="chat">
+                            <span class="codicon codicon-comment-discussion welcome-action-icon"></span>
+                            <span class="welcome-action-label">打开聊天</span>
+                            <span class="welcome-keybinding"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>I</kbd></span>
+                        </button>
+                        <button class="welcome-action" data-command="palette">
+                            <span class="codicon codicon-symbol-color welcome-action-icon"></span>
+                            <span class="welcome-action-label">显示所有命令</span>
+                            <span class="welcome-keybinding"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>P</kbd></span>
+                        </button>
+                        <button class="welcome-action" data-command="settings">
+                            <span class="codicon codicon-settings-gear welcome-action-icon"></span>
+                            <span class="welcome-action-label">打开设置</span>
+                            <span class="welcome-keybinding"><kbd>Ctrl</kbd><kbd>,</kbd></span>
+                        </button>
+                    </div>
+                </div>
+                <div id="editor-host" class="editor-host hidden"></div>
+                <div id="markdown-preview" class="markdown-preview hidden"></div>
+            </div>
+        </main>
+    </div>
+
+    <section id="terminal-panel" class="terminal-panel hidden">
+        <div class="panel-header">
+            <div class="panel-title">
+                <span class="codicon codicon-terminal"></span><span>终端</span>
+            </div>
+            <div class="panel-actions">
+                <button id="btn-term-new" class="icon-button small" title="新建终端">
+                    <span class="codicon codicon-add"></span>
+                </button>
+                <button id="btn-term-kill" class="icon-button small" title="终止终端">
+                    <span class="codicon codicon-trash"></span>
+                </button>
+                <button id="btn-term-hide" class="icon-button small" title="隐藏终端">
+                    <span class="codicon codicon-close"></span>
+                </button>
+            </div>
+        </div>
+        <div class="terminal-body">
+            <div id="terminal"></div>
+            <span id="code-term-status" class="sr-only"></span>
+        </div>
+    </section>
+
+    <footer class="statusbar">
+        <div class="status-left">
+            <button id="status-remote" class="status-item status-button" title="远程">
+                <span class="codicon codicon-remote"></span>
+            </button>
+            <span class="status-item status-problems" title="错误和警告">
+                <span class="codicon codicon-error"></span><span>0</span>
+                <span class="codicon codicon-warning"></span><span>0</span>
+            </span>
+            <span id="status-workspace" class="status-item">无工作区</span>
+            <span id="status-message" class="status-item status-message"></span>
+        </div>
+        <div class="status-right">
+            <span id="status-eol" class="status-item">LF</span>
+            <span id="status-encoding" class="status-item">UTF-8</span>
+            <span id="status-position" class="status-item">Ln 1, Col 1</span>
+            <button id="btn-terminal-status" class="status-item status-button" title="终端 (Ctrl+`)">
+                <span class="codicon codicon-terminal"></span>
+            </button>
+            <button id="btn-status-account" class="status-item status-button" title="账户">
+                <span class="codicon codicon-account"></span>
+            </button>
+            <span class="status-item status-layout">Layout US</span>
+            <button id="btn-status-bell" class="status-item status-button" title="通知">
+                <span class="codicon codicon-bell"></span>
+            </button>
+        </div>
+    </footer>
+</div>
+
+<div id="modal-root"></div>
+<input id="file-upload" type="file" multiple hidden>
+
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='vendor/marked/marked.umd.js') }}"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='vendor/purify/purify.min.js') }}"></script>
+<script src="/term/static/xterm.min.js"></script>
+<script src="/term/static/xterm-addon-fit.min.js"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='vendor/monaco/min/vs/loader.js') }}"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='api.js') }}"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='markdown.js') }}"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='editor.js') }}"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='explorer.js') }}"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='terminal.js') }}"></script>
+<script src="/term/static/term.js"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='code.js') }}"></script>
+</body>
+</html>
