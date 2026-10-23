@@ -426,6 +426,22 @@
         return true;
     }
 
+    async function reloadPath(path) {
+        const tab = state.tabs.find(function (item) { return item.path === path; });
+        if (!tab) { return false; }
+        if (tab.dirty) { return false; }
+        await reloadTab(tab);
+        return true;
+    }
+
+    function getSelectionText() {
+        if (!state.editor) { return ''; }
+        const model = state.editor.getModel();
+        const selection = state.editor.getSelection();
+        if (!model || !selection || selection.isEmpty()) { return ''; }
+        return model.getValueInRange(selection);
+    }
+
     async function saveActive() {
         const tab = state.active;
         if (!tab) { return false; }
@@ -597,9 +613,27 @@
         emitTabs();
     }
 
+    async function revealPosition(path, line, column) {
+        if (!state.ready) { throw new Error('编辑器尚未就绪'); }
+        const existing = state.tabs.find(function (tab) { return tab.path === path; });
+        const tab = existing || await openFile(path);
+        if (!existing) { activate(tab); }
+        const lineNumber = Math.max(1, Math.min(parseInt(line, 10) || 1, tab.model.getLineCount()));
+        const col = Math.max(1, parseInt(column, 10) || 1);
+        if (state.editor) {
+            state.editor.revealLineInCenter(lineNumber);
+            state.editor.setPosition({ lineNumber: lineNumber, column: col });
+            state.editor.focus();
+        }
+        return tab;
+    }
+
     window.CodeEditor = {
         init: init,
         openFile: openFile,
+        revealPosition: revealPosition,
+        reloadPath: reloadPath,
+        getSelectionText: getSelectionText,
         saveActive: saveActive,
         saveTab: saveTab,
         closeTab: closeTab,

@@ -22,6 +22,12 @@ MAX_TEXT_BYTES = 2 * 1024 * 1024
 MAX_UPLOAD_BYTES = 100 * 1024 * 1024
 MAX_DIR_ENTRIES = 2000
 
+MAX_SEARCH_FILE_BYTES = 512 * 1024
+MAX_SEARCH_RESULTS = 500
+MAX_SEARCH_MATCHES_PER_FILE = 100
+MAX_SEARCH_FILES = 20000
+_SEARCH_SKIP_DIR_NAMES = {'node_modules', '__pycache__', 'site-packages', 'venv', '.venv'}
+
 _TEXT_ENCODINGS = ('utf-8', 'gbk')
 _WINDOWS_RESERVED = re.compile(r'^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$', re.I)
 _INVALID_NAME_CHARS = set('<>:"/\\|?*')
@@ -320,6 +326,203 @@ def listDirectory(workspace: Workspace, relPath: Optional[str]) -> Dict[str, Any
 
     entries.sort(key=lambda item: (0 if item['type'] == 'dir' else 1, item['name'].casefold()))
     return {'path': rel, 'entries': entries, 'truncated': truncated}
+
+
+def _walkWorkspaceFiles(root: str, cap: int) -> Tuple[List[str], bool]:
+    """按名称顺序稳定遍历工作区文件（跳过隐藏目录/依赖目录，不跟随符号链接）。"""
+    files: List[str] = []
+    truncated = False
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        dirnames[:] = sorted(
+            (d for d in dirnames if not d.startswith('.') and d not in _SEARCH_SKIP_DIR_NAMES),
+            key=str.casefold,
+        )
+        for fname in sorted(filenames, key=str.casefold):
+            if len(files) >= cap:
+                truncated = True
+                return files, truncated
+            files.append(os.path.join(dirpath, fname))
+    return files, truncated
+
+
+def searchWorkspace(
+    workspace: Workspace,
+    query: Optional[str],
+    caseSensitive: bool = False,
+    regex: bool = False,
+) -> Dict[str, Any]:
+    if not isinstance(query, str) or len(query.strip()) < 2:
+        raise FileServiceError(400, 'invalid_query', '搜索关键词至少需要 2 个字符')
+    query = query.strip()
+    if len(query) > 200:
+        raise FileServiceError(400, 'invalid_query', '搜索关键词过长')
+    flags = 0 if caseSensitive else re.IGNORECASE
+    try:
+        pattern = re.compile(query if regex else re.escape(query), flags)
+    except re.error as exc:
+        raise FileServiceError(400, 'invalid_regex', '正则表达式无效: {}'.format(exc))
+
+    files, filesTruncated = _walkWorkspaceFiles(workspace.root, MAX_SEARCH_FILES)
+    results: List[Dict[str, Any]] = []
+    totalMatches = 0
+    filesScanned = 0
+    truncated = filesTruncated
+    for full in files:
+        if os.path.islink(full):
+            continue
+        try:
+            st = os.stat(full)
+        except OSError:
+            continue
+        if st.st_size <= 0 or st.st_size > MAX_SEARCH_FILE_BYTES:
+            continue
+        filesScanned += 1
+        try:
+            with open(full, 'rb') as handle:
+                data = handle.read(MAX_SEARCH_FILE_BYTES + 1)
+        except OSError:
+            continue
+        if len(data) > MAX_SEARCH_FILE_BYTES:
+            continue
+        try:
+            text, _encoding = decodeText(data)
+        except FileServiceError:
+            continue
+        matches: List[Dict[str, Any]] = []
+        for lineno, line in enumerate(text.splitlines(), 1):
+            found = pattern.search(line)
+            if not found:
+                continue
+            # 预览是 strip+截断后的文本，高亮列需换算到预览坐标系
+            stripped = line.strip()
+            preview = stripped[:240]
+            lead = len(line) - len(line.lstrip())
+            previewCol = found.start() - lead + 1
+            previewLength = 0
+            if 1 <= previewCol <= len(preview):
+                previewLength = min(found.end() - found.start(), len(preview) - (previewCol - 1))
+            else:
+                previewCol = 1
+            matches.append({
+                'line': lineno,
+                'col': found.start() + 1,
+                'length': found.end() - found.start(),
+                'previewCol': previewCol,
+                'previewLength': previewLength,
+                'text': preview,
+            })
+            if len(matches) >= MAX_SEARCH_MATCHES_PER_FILE:
+                truncated = True
+                break
+        if matches:
+            rel = os.path.relpath(full, workspace.root).replace('\\', '/')
+            results.append({'path': rel, 'name': os.path.basename(full), 'matches': matches})
+            totalMatches += len(matches)
+            if totalMatches >= MAX_SEARCH_RESULTS:
+                truncated = True
+                break
+
+    return {
+        'query': query,
+        'results': results,
+        'fileCount': len(results),
+        'matchCount': totalMatches,
+        'filesScanned': filesScanned,
+        'truncated': truncated,
+    }
+
+
+def listWorkspaceFiles(workspace: Workspace) -> Dict[str, Any]:
+    files, truncated = _walkWorkspaceFiles(workspace.root, MAX_SEARCH_FILES)
+    rels = []
+    for full in files:
+        if os.path.islink(full):
+            continue
+        rels.append(os.path.relpath(full, workspace.root).replace('\\', '/'))
+    return {'files': rels, 'truncated': truncated}
+
+
+def replaceInWorkspace(
+    workspace: Workspace,
+    query: Optional[str],
+    replacement: Optional[str],
+    caseSensitive: bool = False,
+    regex: bool = False,
+) -> Dict[str, Any]:
+    """按当前搜索语义做全工作区文本替换。
+
+    逐文件 读取→替换→带 etag 写回，文件被并发修改时跳过并计入 conflicts。
+    替换内容始终按字面量处理（不做反向引用展开）。
+    """
+    if not isinstance(query, str) or len(query.strip()) < 2:
+        raise FileServiceError(400, 'invalid_query', '搜索关键词至少需要 2 个字符')
+    query = query.strip()
+    if len(query) > 200:
+        raise FileServiceError(400, 'invalid_query', '搜索关键词过长')
+    if replacement is None:
+        replacement = ''
+    if not isinstance(replacement, str) or len(replacement) > 1000:
+        raise FileServiceError(400, 'invalid_replacement', '替换内容无效或过长')
+    flags = 0 if caseSensitive else re.IGNORECASE
+    try:
+        pattern = re.compile(query if regex else re.escape(query), flags)
+    except re.error as exc:
+        raise FileServiceError(400, 'invalid_regex', '正则表达式无效: {}'.format(exc))
+
+    def literalRepl(_match):
+        return replacement
+
+    files, filesTruncated = _walkWorkspaceFiles(workspace.root, MAX_SEARCH_FILES)
+    changed = []
+    conflicts = []
+    totalReplacements = 0
+    truncated = filesTruncated
+    for full in files:
+        if totalReplacements >= MAX_SEARCH_RESULTS:
+            truncated = True
+            break
+        if os.path.islink(full):
+            continue
+        try:
+            st = os.stat(full)
+        except OSError:
+            continue
+        if st.st_size <= 0 or st.st_size > MAX_SEARCH_FILE_BYTES:
+            continue
+        rel = os.path.relpath(full, workspace.root).replace('\\', '/')
+        try:
+            data = readTextFile(workspace, rel)
+        except FileServiceError:
+            continue
+        newText, count = pattern.subn(literalRepl, data['content'])
+        if not count:
+            continue
+        try:
+            writeTextFile(
+                workspace,
+                rel,
+                newText,
+                encoding=data['encoding'] if data['encoding'] in ('utf-8', 'utf-8-sig', 'gbk') else None,
+                eol=data['eol'] if data['eol'] in ('LF', 'CRLF', 'CR') else None,
+                baseEtag=data['etag'],
+            )
+        except FileServiceError as exc:
+            if exc.status == 409:
+                conflicts.append({'path': rel, 'reason': 'conflict'})
+            else:
+                conflicts.append({'path': rel, 'reason': exc.message})
+            continue
+        changed.append({'path': rel, 'count': count})
+        totalReplacements += count
+
+    return {
+        'query': query,
+        'files': changed,
+        'fileCount': len(changed),
+        'totalReplacements': totalReplacements,
+        'conflicts': conflicts,
+        'truncated': truncated,
+    }
 
 
 def readTextFile(workspace: Workspace, relPath: Optional[str]) -> Dict[str, Any]:

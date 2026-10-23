@@ -19,7 +19,7 @@
             <button id="btn-activity-explorer" class="activity-item active" title="资源管理器" aria-label="资源管理器">
                 <span class="codicon codicon-files"></span>
             </button>
-            <button id="btn-activity-search" class="activity-item" title="搜索（M4）" aria-label="搜索">
+            <button id="btn-activity-search" class="activity-item" title="搜索 (Ctrl+Shift+F)" aria-label="搜索">
                 <span class="codicon codicon-search"></span>
             </button>
             <button id="btn-activity-scm" class="activity-item" title="源代码管理（后续版本）" aria-label="源代码管理">
@@ -47,30 +47,62 @@
         </nav>
 
         <aside id="sidebar" class="sidebar">
-            <div class="sidebar-title">
-                <span class="sidebar-title-label">资源管理器</span>
-                <div class="sidebar-actions">
-                    <button id="btn-explorer-more" class="icon-button small" title="更多操作" aria-label="更多操作">
-                        <span class="codicon codicon-ellipsis"></span>
+            <section id="view-explorer" class="sidebar-view">
+                <div class="sidebar-title">
+                    <span class="sidebar-title-label">资源管理器</span>
+                    <div class="sidebar-actions">
+                        <button id="btn-explorer-more" class="icon-button small" title="更多操作" aria-label="更多操作">
+                            <span class="codicon codicon-ellipsis"></span>
+                        </button>
+                    </div>
+                </div>
+                <div id="workspace-summary" class="workspace-summary">
+                    <button id="btn-workspace-row" class="workspace-row hidden" title="工作区操作">
+                        <span class="codicon codicon-chevron-down workspace-chevron"></span>
+                        <span id="workspace-name" class="workspace-name"></span>
+                    </button>
+                    <button id="btn-open-folder-sidebar" class="open-folder-button">
+                        <span class="codicon codicon-folder-opened"></span><span>打开文件夹</span>
+                    </button>
+                    <div id="workspace-path" class="workspace-path hidden"></div>
+                </div>
+                <div id="file-tree" class="file-tree" role="tree"></div>
+                <div id="tree-empty" class="tree-empty">
+                    <span class="codicon codicon-folder"></span>
+                    <p>尚未打开文件夹</p>
+                    <button id="btn-open-folder-empty" class="text-button">打开文件夹</button>
+                </div>
+            </section>
+            <section id="view-search" class="sidebar-view hidden">
+                <div class="sidebar-title">
+                    <span class="sidebar-title-label">搜索</span>
+                    <div class="sidebar-actions">
+                        <button id="btn-search-case" class="icon-button small search-toggle" title="区分大小写 (Alt+C)" aria-label="区分大小写">Aa</button>
+                        <button id="btn-search-regex" class="icon-button small search-toggle" title="正则表达式 (Alt+R)" aria-label="正则表达式">.*</button>
+                        <button id="btn-search-refresh" class="icon-button small" title="重新搜索" aria-label="重新搜索">
+                            <span class="codicon codicon-refresh"></span>
+                        </button>
+                        <button id="btn-search-clear" class="icon-button small" title="清空搜索" aria-label="清空搜索">
+                            <span class="codicon codicon-clear-all"></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="search-input-row">
+                    <input id="search-input" type="text" placeholder="搜索工作区 (Ctrl+Shift+F)" aria-label="搜索工作区" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="search-input-row search-replace-row">
+                    <input id="replace-input" type="text" placeholder="替换为（留空即删除匹配）" aria-label="替换内容" autocomplete="off" spellcheck="false">
+                    <button id="btn-replace-all" class="icon-button small" title="全部替换（当前搜索结果的所有文件）" aria-label="全部替换">
+                        <span class="codicon codicon-replace-all"></span>
                     </button>
                 </div>
-            </div>
-            <div id="workspace-summary" class="workspace-summary">
-                <button id="btn-workspace-row" class="workspace-row hidden" title="工作区操作">
-                    <span class="codicon codicon-chevron-down workspace-chevron"></span>
-                    <span id="workspace-name" class="workspace-name"></span>
-                </button>
-                <button id="btn-open-folder-sidebar" class="open-folder-button">
-                    <span class="codicon codicon-folder-opened"></span><span>打开文件夹</span>
-                </button>
-                <div id="workspace-path" class="workspace-path hidden"></div>
-            </div>
-            <div id="file-tree" class="file-tree" role="tree"></div>
-            <div id="tree-empty" class="tree-empty">
-                <span class="codicon codicon-folder"></span>
-                <p>尚未打开文件夹</p>
-                <button id="btn-open-folder-empty" class="text-button">打开文件夹</button>
-            </div>
+                <div id="search-summary" class="search-summary hidden"></div>
+                <div id="search-results" class="search-results"></div>
+                <div id="search-empty" class="tree-empty">
+                    <span class="codicon codicon-search"></span>
+                    <p>输入关键词搜索工作区文件</p>
+                </div>
+            </section>
         </aside>
 
         <main class="main-area">

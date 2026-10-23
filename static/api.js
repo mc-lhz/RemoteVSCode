@@ -103,6 +103,37 @@
             }));
         },
 
+        search(query, options) {
+            const ws = requireWorkspace();
+            const opts = options || {};
+            return request('/code/api/fs/search?' + qs({
+                workspaceId: ws.id,
+                query: query,
+                case: opts.caseSensitive ? '1' : '',
+                regex: opts.regex ? '1' : ''
+            }));
+        },
+
+        replace(query, replacement, options) {
+            const ws = requireWorkspace();
+            const opts = options || {};
+            return request('/code/api/fs/replace', {
+                method: 'POST',
+                body: {
+                    workspaceId: ws.id,
+                    query: query,
+                    replacement: replacement || '',
+                    case: !!opts.caseSensitive,
+                    regex: !!opts.regex
+                }
+            });
+        },
+
+        listFiles() {
+            const ws = requireWorkspace();
+            return request('/code/api/fs/list?' + qs({ workspaceId: ws.id }));
+        },
+
         readFile(path) {
             const ws = requireWorkspace();
             return request('/code/api/fs/file?' + qs({
