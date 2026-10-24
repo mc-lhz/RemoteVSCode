@@ -6,7 +6,7 @@
     <title>Code - RemoteConnecter</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="{{ url_for(pluginID ~ '_bp.static', filename='vendor/codicons/codicon.css') }}">
-    <link rel="stylesheet" href="/term/static/xterm.min.css">
+    <link rel="stylesheet" href="{{ url_for(pluginID ~ '_bp.static', filename='vendor/xterm/xterm.min.css') }}">
     <link rel="stylesheet" href="{{ url_for(pluginID ~ '_bp.static', filename='code.css') }}">
 </head>
 <body>
@@ -203,15 +203,14 @@
 
 <script src="{{ url_for(pluginID ~ '_bp.static', filename='vendor/marked/marked.umd.js') }}"></script>
 <script src="{{ url_for(pluginID ~ '_bp.static', filename='vendor/purify/purify.min.js') }}"></script>
-<script src="/term/static/xterm.min.js"></script>
-<script src="/term/static/xterm-addon-fit.min.js"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='vendor/xterm/xterm.min.js') }}"></script>
+<script src="{{ url_for(pluginID ~ '_bp.static', filename='vendor/xterm/xterm-addon-fit.min.js') }}"></script>
 <script src="{{ url_for(pluginID ~ '_bp.static', filename='vendor/monaco/min/vs/loader.js') }}"></script>
 <script src="{{ url_for(pluginID ~ '_bp.static', filename='api.js') }}"></script>
 <script src="{{ url_for(pluginID ~ '_bp.static', filename='markdown.js') }}"></script>
 <script src="{{ url_for(pluginID ~ '_bp.static', filename='editor.js') }}"></script>
 <script src="{{ url_for(pluginID ~ '_bp.static', filename='explorer.js') }}"></script>
 <script src="{{ url_for(pluginID ~ '_bp.static', filename='terminal.js') }}"></script>
-<script src="/term/static/term.js"></script>
 <script src="{{ url_for(pluginID ~ '_bp.static', filename='code.js') }}"></script>
 </body>
 </html>
